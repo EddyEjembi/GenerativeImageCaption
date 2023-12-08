@@ -46,7 +46,7 @@ def main():
             # Authenticate Azure AI Vision client
             credential = CognitiveServicesCredentials(cog_key) 
             cv_client = ComputerVisionClient(cog_endpoint, credential)
-            content = 'content' #file content
+            content = 'content.txt' #file content
 
 
             # Analyze image
