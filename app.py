@@ -46,14 +46,16 @@ def main():
             # Authenticate Azure AI Vision client
             credential = CognitiveServicesCredentials(cog_key) 
             cv_client = ComputerVisionClient(cog_endpoint, credential)
-            content = 'content.txt' #file content
+            #content = 'content' #file content
+            desc_list = [ ]
+            content = " "
 
 
             # Analyze image
-            AnalyzeImage(image_file, content)
+            AnalyzeImage(image_file, desc_list)
 
             #Generate Caption
-            caption = GenerateCaption(content, message)
+            caption = GenerateCaption(content, desc_list, message)
 
             # Generate thumbnail
             #GetThumbnail(image_file)
@@ -68,7 +70,7 @@ def main():
         print(ex)
         return jsonify({"error": str(ex)}), 500
 
-def AnalyzeImage(image_file, content):
+def AnalyzeImage(image_file, desc_list):
     #print('Analyzing', image_file.filename())
 
     # Specify features to be retrieved
@@ -85,55 +87,52 @@ def AnalyzeImage(image_file, content):
         analysis = cv_client.analyze_image_in_stream(image_data , features)
 
     # Get image description
-    with open(content, mode="w") as file:
-        for caption in analysis.description.captions:
-            print("Description: '{}' (confidence: {:.2f}%)".format(caption.text, caption.confidence * 100))
-            file.write("Description: '{}' (confidence: {:.2f}%)\n".format(caption.text, caption.confidence * 100))
+    for caption in analysis.description.captions:
+        print("Description: '{}' (confidence: {:.2f}%)".format(caption.text, caption.confidence * 100))
+        desc_list.append("Description: '{}' (confidence: {:.2f}%)".format(caption.text, caption.confidence * 100))
 
     # Get image tags
-    with open(content, mode="a") as file:
-        if (len(analysis.tags) > 0):
-            print("Tags: ")
-            file.write("Tags: \n")
-            for tag in analysis.tags:
-                print(" -'{}' (confidence: {:.2f}%)".format(tag.name, tag.confidence * 100))
-                file.write(" -'{}' (confidence: {:.2f}%)\n".format(tag.name, tag.confidence * 100))
+    if (len(analysis.tags) > 0):
+        print("Tags: ")
+        desc_list.append("Tags: \n")
+        for tag in analysis.tags:
+            print(" -'{}' (confidence: {:.2f}%)".format(tag.name, tag.confidence * 100))
+            desc_list.append(" -'{}' (confidence: {:.2f}%)\n".format(tag.name, tag.confidence * 100))
 
 
     # Get image categories
-    with open(content, mode="a") as file:
-        if (len(analysis.categories) > 0):
-            print("Categories:")
-            file.write("Categories: \n")
-            landmarks = []
-            for category in analysis.categories:
-                # Print the category
-                print(" -'{}' (confidence: {:.2f}%)".format(category.name, category.score * 100))
-                file.write(" -'{}' (confidence: {:.2f}%)\n".format(category.name, category.score * 100))
-                if category.detail:
-                    # Get landmarks in this category
-                    if category.detail.landmarks:
-                        for landmark in category.detail.landmarks:
-                            if landmark not in landmarks:
-                                landmarks.append(landmark)
+    if (len(analysis.categories) > 0):
+        print("Categories:")
+        desc_list.append("Categories: \n")
+        landmarks = []
+        for category in analysis.categories:
+            # Print the category
+            print(" -'{}' (confidence: {:.2f}%)".format(category.name, category.score * 100))
+            desc_list.append(" -'{}' (confidence: {:.2f}%)\n".format(category.name, category.score * 100))
+            if category.detail:
+                # Get landmarks in this category
+                if category.detail.landmarks:
+                    for landmark in category.detail.landmarks:
+                        if landmark not in landmarks:
+                            landmarks.append(landmark)
 
-            # If there were landmarks, list them
-            if len(landmarks) > 0:
-                print("Landmarks:")
-                file.write("Landmarks: \n")
-                for landmark in landmarks:
-                    print(" -'{}' (confidence: {:.2f}%)".format(landmark.name, landmark.confidence * 100))
-                    file.write(" -'{}' (confidence: {:.2f}%)\n".format(landmark.name, landmark.confidence * 100))
+        # If there were landmarks, list them
+        if len(landmarks) > 0:
+            print("Landmarks:")
+            desc_list.append("Landmarks: \n")
+            for landmark in landmarks:
+                print(" -'{}' (confidence: {:.2f}%)".format(landmark.name, landmark.confidence * 100))
+                desc_list.attend(" -'{}' (confidence: {:.2f}%)\n".format(landmark.name, landmark.confidence * 100))
  
 
 
     # Get brands in the image
-    with open(content, mode="a") as file:
-        if (len(analysis.brands) > 0):
-            print("Brands: \n")
-            for brand in analysis.brands:
-                print(" -'{}' (confidence: {:.2f}%)".format(brand.name, brand.confidence * 100))
-                file.write(" -'{}' (confidence: {:.2f}%)\n\n".format(brand.name, brand.confidence * 100))
+    if (len(analysis.brands) > 0):
+        print("Brands: \n")
+        desc_list.append("Brands: \n")
+        for brand in analysis.brands:
+            print(" -'{}' (confidence: {:.2f}%)".format(brand.name, brand.confidence * 100))
+            desc_list.append(" -'{}' (confidence: {:.2f}%)\n\n".format(brand.name, brand.confidence * 100))
 
 
     # Get objects in the image
@@ -151,16 +150,18 @@ def GetThumbnail(image_file):
     # Generate a thumbnail
 """
 
-def GenerateCaption(content, message):
-    with open(content, mode="a") as file:
-        file.write(message)
+def GenerateCaption(content, desc_list, message):
+    #append user prompt to generated description
+    desc_list.append(message)
 
-    with open(content, mode="r") as file:
-        content = file.read()
-        message_text = [{"role":"system","content":"You are an AI assistant helping users generate engaging social media captions for images. Given a brief description of the image, and an optional message by the user, provide 3 creative and concise caption that would captivate and inform the audience. Ensure the caption is suitable for sharing on various social platforms. Write in a common way social media users write"},
+    content = '\n'.join(desc_list)
+
+    message_text = [{"role":"system","content":"You are an AI assistant helping users generate engaging social media captions for images. Given a brief description of the image, and an optional message by the user, provide 3 creative and concise caption that would captivate and inform the audience. Ensure the caption is suitable for sharing on various social platforms. Write in a common way social media users write"},
                     {"role":"user","content":content}]
 
+    #print(desc_list)
     #print(content)
+    #print(type(content))
     completion = openai.ChatCompletion.create(
     engine="SocialMedia-ImageCap",
     messages = message_text,
