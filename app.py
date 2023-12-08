@@ -2,13 +2,10 @@ from dotenv import load_dotenv
 import os
 from array import array
 from PIL import Image, ImageDraw
-import sys
 import time
 from matplotlib import pyplot as plt
 import numpy as np
 from flask import Flask, request, jsonify
-import base64
-import io
 
 import openai
 
@@ -31,9 +28,9 @@ def main():
     try:
         # Get Configuration Settings
         load_dotenv()
-        cog_endpoint = os.getenv('COG_SERVICE_ENDPOINT')
-        cog_key = os.getenv('COG_SERVICE_KEY')
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        cog_endpoint = os.environ.get('COG_SERVICE_ENDPOINT') #os.getenv
+        cog_key = os.environ.get('COG_SERVICE_KEY')
+        openai.api_key = os.environ.get("OPENAI_API_KEY")
 
         # Get image
         image_file = request.files.get("image")
