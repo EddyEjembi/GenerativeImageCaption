@@ -40,7 +40,7 @@ def main():
 
             #enter = request.get_json()
             #message = (enter['prompt'])
-            message = request.form.get('prompt')
+            message = request.form.get('prompt', 'Write creative caption for this image')
             #message = input("enter a prompt (optional): ")
 
             # Authenticate Azure AI Vision client
