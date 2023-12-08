@@ -21,7 +21,7 @@ from azure.cognitiveservices.vision.computervision.models import VisualFeatureTy
 from msrest.authentication import CognitiveServicesCredentials
 
 
-@app.route('/analyze', methods=["POST"])
+@app.route('/analyze', methods=["POST", "GET"])
 def main():
     global cv_client
 
