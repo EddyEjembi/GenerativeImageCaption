@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import time
 from array import array
 from PIL import Image, ImageDraw
 import time
@@ -20,6 +21,10 @@ from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import VisualFeatureTypes
 from msrest.authentication import CognitiveServicesCredentials
 
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+MAX_FILE_AGE_SECONDS = 30 * 60  # 30 minutes in seconds
+
 
 @app.route('/analyze', methods=["POST", "GET"])
 def main():
@@ -34,6 +39,15 @@ def main():
 
         # Get image
         image_file = request.files.get("image")
+
+        # Check if the user selected a file
+        if image_file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        
+        # Save the file to a specific location
+        file_path = 'uploads/' + image_file.filename
+        image_file.save(file_path)
+
         if image_file:
 
             #image_file = 'person.jpg'
@@ -52,13 +66,14 @@ def main():
 
 
             # Analyze image
-            AnalyzeImage(image_file, desc_list)
+            AnalyzeImage(image_file, file_path, desc_list)
 
             #Generate Caption
             caption = GenerateCaption(content, desc_list, message)
 
             # Generate thumbnail
             #GetThumbnail(image_file)
+            cleanup_expired_files()
 
             response = {"response": caption}
             return jsonify(response), 200
@@ -70,8 +85,16 @@ def main():
         print(ex)
         return jsonify({"error": str(ex)}), 500
 
-def AnalyzeImage(image_file, desc_list):
-    #print('Analyzing', image_file.filename())
+def cleanup_expired_files():
+    current_time = time.time()
+    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file_age = current_time - os.path.getmtime(file_path)
+        if file_age > MAX_FILE_AGE_SECONDS:
+            os.remove(file_path)
+
+def AnalyzeImage(image_file, file_path, desc_list):
+    print('Analyzing', image_file.filename)
 
     # Specify features to be retrieved
     features = [VisualFeatureTypes.description,
@@ -83,7 +106,7 @@ def AnalyzeImage(image_file, desc_list):
     
     
     # Get image analysis
-    with open(image_file.filename, mode="rb") as image_data:
+    with open(file_path, mode="rb") as image_data:
         analysis = cv_client.analyze_image_in_stream(image_data , features)
 
     # Get image description
