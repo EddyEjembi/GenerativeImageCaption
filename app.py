@@ -26,9 +26,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 MAX_FILE_AGE_SECONDS = 30 * 60  # 30 minutes in seconds
 
 cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
 )
 
 @app.route('/analyze', methods=["POST", "GET"])
@@ -38,9 +38,9 @@ def main():
     try:
         # Get Configuration Settings
         load_dotenv()
-        cog_endpoint = os.getenv('COG_SERVICE_ENDPOINT') #os.getenv
-        cog_key = os.getenv('COG_SERVICE_KEY')
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        cog_endpoint = os.environ.get('COG_SERVICE_ENDPOINT') #os.getenv
+        cog_key = os.environ.get('COG_SERVICE_KEY')
+        openai.api_key = os.environ.get("OPENAI_API_KEY")
 
         # Get image
         file = request.files.get("image")
