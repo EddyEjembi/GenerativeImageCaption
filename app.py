@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 import os
-import time
 from array import array
 from PIL import Image, ImageDraw
 import time
+import threading
 from matplotlib import pyplot as plt
 import numpy as np
 from flask import Flask, request, jsonify
-
+import cloudinary.uploader
 import openai
 
 app = Flask(__name__)
@@ -25,6 +25,11 @@ UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 MAX_FILE_AGE_SECONDS = 30 * 60  # 30 minutes in seconds
 
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 @app.route('/analyze', methods=["POST", "GET"])
 def main():
@@ -33,20 +38,31 @@ def main():
     try:
         # Get Configuration Settings
         load_dotenv()
-        cog_endpoint = os.environ.get('COG_SERVICE_ENDPOINT') #os.getenv
-        cog_key = os.environ.get('COG_SERVICE_KEY')
-        openai.api_key = os.environ.get("OPENAI_API_KEY")
+        cog_endpoint = os.getenv('COG_SERVICE_ENDPOINT') #os.getenv
+        cog_key = os.getenv('COG_SERVICE_KEY')
+        openai.api_key = os.getenv("OPENAI_API_KEY")
 
         # Get image
-        image_file = request.files.get("image")
+        file = request.files.get("image")
 
         # Check if the user selected a file
-        if image_file.filename == '':
+        if file.filename == '':
             return jsonify({"error": "No selected file"}), 400
         
-        # Save the file to a specific location
+        # Read the file content
+        file_content = file.read()
+
+        # Upload the file to Cloudinary
+        upload_result = cloudinary.uploader.upload(file_content, public_id=file.filename)
+
+        # Now you can use the Cloudinary URL in your image processing code
+        image_file = upload_result['secure_url']
+
+        # Download the image from the Cloudinary URL
+
+        """# Save the file to a specific location
         file_path = 'uploads/' + image_file.filename
-        image_file.save(file_path)
+        image_file.save(file_path)"""
 
         if image_file:
 
@@ -66,35 +82,56 @@ def main():
 
 
             # Analyze image
-            AnalyzeImage(image_file, file_path, desc_list)
+            AnalyzeImage(file, image_file, desc_list)
 
-            #Generate Caption
+            #Generate Captions
             caption = GenerateCaption(content, desc_list, message)
 
             # Generate thumbnail
             #GetThumbnail(image_file)
-            cleanup_expired_files()
+
+            # Start a thread for delayed image deletion
+            delete_thread = threading.Thread(target=delete_image, args=(upload_result['public_id'],))
+            delete_thread.start()
 
             response = {"response": caption}
             return jsonify(response), 200
         else:
             return jsonify({"error": "No image file provided!"}), 400
 
-
     except Exception as ex:
         print(ex)
         return jsonify({"error": str(ex)}), 500
 
-def cleanup_expired_files():
+"""def cleanup_expired_files():
     current_time = time.time()
     for filename in os.listdir(app.config['UPLOAD_FOLDER']):
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file_age = current_time - os.path.getmtime(file_path)
         if file_age > MAX_FILE_AGE_SECONDS:
-            os.remove(file_path)
+            os.remove(file_path)"""
 
-def AnalyzeImage(image_file, file_path, desc_list):
-    print('Analyzing', image_file.filename)
+def delete_image(public_id):
+    try:
+        start_time = time.time()
+        while True:
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            if elapsed_time > MAX_FILE_AGE_SECONDS:
+                # Delete the image from Cloudinary
+                result = cloudinary.uploader.destroy(public_id)
+                if result.get("result") == "ok":
+                    print(f"Image with public_id '{public_id}' deleted successfully.")
+                else:
+                    print(f"Failed to delete image with public_id '{public_id}'.")
+                break
+            time.sleep(1)
+         
+    except Exception as ex:
+        print(f"Error deleting image with public_id '{public_id}': {ex}")
+
+def AnalyzeImage(file, image_file, desc_list):
+    print('Analyzing '+ file.filename)
 
     # Specify features to be retrieved
     features = [VisualFeatureTypes.description,
@@ -106,8 +143,8 @@ def AnalyzeImage(image_file, file_path, desc_list):
     
     
     # Get image analysis
-    with open(file_path, mode="rb") as image_data:
-        analysis = cv_client.analyze_image_in_stream(image_data , features)
+    #with open(image_file, mode="rb") as image_data:
+    analysis = cv_client.analyze_image(image_file, features)
 
     # Get image description
     for caption in analysis.description.captions:
