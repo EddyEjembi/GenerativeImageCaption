@@ -55,10 +55,9 @@ def main():
         # Upload the file to Cloudinary
         upload_result = cloudinary.uploader.upload(file_content, public_id=file.filename)
 
-        # Now you can use the Cloudinary URL in your image processing code
+        # use Cloudinary URL in image processing code
         image_file = upload_result['secure_url']
 
-        # Download the image from the Cloudinary URL
 
         """# Save the file to a specific location
         file_path = 'uploads/' + image_file.filename
