@@ -3,11 +3,13 @@ import os
 from array import array
 from PIL import Image, ImageDraw
 import time
+from datetime import datetime, timedelta
 import threading
 from matplotlib import pyplot as plt
 import numpy as np
 from flask import Flask, request, jsonify
 import cloudinary.uploader
+from cloudinary import api
 import openai
 
 app = Flask(__name__)
@@ -23,7 +25,7 @@ from msrest.authentication import CognitiveServicesCredentials
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-MAX_FILE_AGE_SECONDS = 30 * 60  # 30 minutes in seconds
+MAX_FILE_AGE_SECONDS = 5 * 60  # 30 minutes in seconds
 
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
@@ -42,6 +44,7 @@ def main():
         cog_key = os.environ.get('COG_SERVICE_KEY')
         openai.api_key = os.environ.get("OPENAI_API_KEY")
 
+
         # Get image
         file = request.files.get("image")
 
@@ -53,7 +56,7 @@ def main():
         file_content = file.read()
 
         # Upload the file to Cloudinary
-        upload_result = cloudinary.uploader.upload(file_content, public_id=file.filename)
+        upload_result = cloudinary.uploader.upload(file_content, public_id=file.filename, folder="ImageCaption")
 
         # use Cloudinary URL in image processing code
         image_file = upload_result['secure_url']
@@ -67,14 +70,13 @@ def main():
 
             #image_file = 'person.jpg'
 
-            #enter = request.get_json()
-            #message = (enter['prompt'])
             message = request.form.get('prompt', 'Write creative caption for this image')
             #message = input("enter a prompt (optional): ")
 
             # Authenticate Azure AI Vision client
             credential = CognitiveServicesCredentials(cog_key) 
             cv_client = ComputerVisionClient(cog_endpoint, credential)
+
             #content = 'content' #file content
             desc_list = [ ]
             content = " "
@@ -90,8 +92,14 @@ def main():
             #GetThumbnail(image_file)
 
             # Start a thread for delayed image deletion
-            delete_thread = threading.Thread(target=delete_image, args=(upload_result['public_id'],))
-            delete_thread.start()
+            # Get a list of all resources in the specified folder
+            resources = api.resources(type="upload", prefix="ImageCaption")
+
+            # Print the public_ids of all files in the folder
+            for resource in resources["resources"]:
+                print(resource["public_id"])
+                delete_thread = threading.Thread(target=delete_image, args=(resource['public_id'],resource['created_at']))
+                delete_thread.start()
 
             response = {"response": caption}
             return jsonify(response), 200
@@ -110,24 +118,27 @@ def main():
         if file_age > MAX_FILE_AGE_SECONDS:
             os.remove(file_path)"""
 
-def delete_image(public_id):
+def delete_image(public_id, created_time):
     try:
-        start_time = time.time()
-        while True:
-            current_time = time.time()
-            elapsed_time = current_time - start_time
-            if elapsed_time > MAX_FILE_AGE_SECONDS:
-                # Delete the image from Cloudinary
-                result = cloudinary.uploader.destroy(public_id)
-                if result.get("result") == "ok":
-                    print(f"Image with public_id '{public_id}' deleted successfully.")
-                else:
-                    print(f"Failed to delete image with public_id '{public_id}'.")
-                break
-            time.sleep(1)
+        # Parse the timestamp string into a datetime object
+        created_at = datetime.strptime(created_time, "%Y-%m-%dT%H:%M:%SZ")
+
+        # Calculate the time difference between now and the created timestamp
+        time_difference = datetime.utcnow() - created_at
+
+        # Set the maximum age threshold (e.g., 30 minutes)
+        max_age_threshold = timedelta(minutes=30)
+
+        if time_difference > max_age_threshold:
+            # Delete the image from Cloudinary
+            result = cloudinary.uploader.destroy(public_id)
+            if result.get("result") == "ok":
+                print(f"Image with public_id '{public_id}' deleted successfully.")
+            else:
+                print(f"Failed to delete image with public_id '{public_id}'.")
          
     except Exception as ex:
-        print(f"Error deleting image with public_id '{public_id}': {ex}")
+        print(f"Error deleting image with public_id '{public_id, created_time}': {ex}")
 
 def AnalyzeImage(file, image_file, desc_list):
     print('Analyzing '+ file.filename)
