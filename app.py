@@ -248,4 +248,4 @@ def GenerateCaption(content, desc_list, message):
     return captions
 
 if __name__ == "__main__":
-    app.run(debug=False, threading=True)
+    app.run(debug=False, threaded=True)
