@@ -10,6 +10,14 @@ Welcome to the Social Media Image Captioning API repository. This API, built wit
 
 ## Getting Started
 
+### Usage
+The api requires two parameters
+- image: The image in JPG, PNG, or JPEG
+- prompt: An additional prompt describing the image (optional)
+
+**API endpoint: https://generative-image-caption.vercel.app/analyze**
+
+
 ### Prerequisites
 
 - Python 3.7+
@@ -28,12 +36,5 @@ Welcome to the Social Media Image Captioning API repository. This API, built wit
    ```
 3. Run program
    ```
-   python app.py
+   flask run
    ```
-
-### Usage
-The api requires two parameters
-- image: The image in JPG, PNG, or JPEG
-- prompt: An additional prompt describing the image (optional)
-
-**API endpoint: https://generative-image-caption.vercel.app/analyze**
