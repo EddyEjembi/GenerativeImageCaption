@@ -1,6 +1,6 @@
 # Social Media Image Captioning API
 
-Welcome to the Social Media Image Captioning API repository. This API, built with FastAPI and Azure Cognitive Services, generates creative captions for images based on user prompts.
+Welcome to the Social Media Image Captioning API repository. This API, built with Flask, Azure Cognitive Services, and OpenAI gpt-3.5-turbo, generates creative captions for images based on user prompts.
 
 ## Features
 
